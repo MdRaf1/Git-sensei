@@ -36,19 +36,23 @@ def load_dangerous_patterns() -> List[str]:
         List of regex patterns that match dangerous Git operations
     """
     return [
-        r"push\s+(-f|--force)",
-        r"reset\s+--hard",
-        r"filter-branch",
-        r"rebase\s+(-i|--interactive)",
-        r"checkout\s+(-f|--force)",
-        r"clean\s+(-fd|-df|-f\s+-d|-d\s+-f)",
-        r"reflog\s+expire",
-        r"gc\s+--prune=now",
-        r"update-ref\s+-d",
-        r"branch\s+(-D|--delete\s+--force)",
-        r"tag\s+(-d|--delete)",
-        r"stash\s+(drop|clear)",
-        r"worktree\s+(remove|prune)\s+--force",
+        r"(?i)push\s+(-f|--force)",
+        r"(?i)reset\s+--hard",
+        r"(?i)filter-branch",
+        r"(?i)rebase\s+(-i|--interactive)",
+        r"(?i)checkout\s+(-f|--force)",
+        r"(?i)clean\s+(-fd|-df|-f\s+-d|-d\s+-f)",
+        r"(?i)reflog\s+expire",
+        r"(?i)gc\s+--prune=now",
+        r"(?i)update-ref\s+-d",
+        # The short flag's case carries meaning here, so only the subcommand
+        # folds case: `branch -D` force-deletes an unmerged branch, while
+        # `branch -d` refuses to. Matching -D case-insensitively would flag
+        # the safe form; folding the command instead loses -D entirely.
+        r"(?i:branch)\s+(-D|(?i:--delete\s+--force))",
+        r"(?i)tag\s+(-d|--delete)",
+        r"(?i)stash\s+(drop|clear)",
+        r"(?i)worktree\s+(remove|prune)\s+--force",
     ]
 
 
@@ -70,8 +74,10 @@ def check_command_safety(command: str) -> SafetyCheck:
         dangerous_patterns = load_dangerous_patterns()
         found_patterns = []
 
-        # Normalize command for pattern matching
-        normalized_command = command.lower().strip()
+        # Only whitespace is normalized. Case folding here would defeat any
+        # pattern whose flag case is significant, so each pattern declares its
+        # own case rule instead.
+        normalized_command = command.strip()
 
         # Check each dangerous pattern
         for pattern in dangerous_patterns:

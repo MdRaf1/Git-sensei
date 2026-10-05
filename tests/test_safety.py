@@ -181,6 +181,40 @@ class TestCheckCommandSafety:
         assert result_upper.is_safe is False
         assert result_mixed.is_safe is False
 
+    def test_branch_force_delete_short_flag_is_caught(self):
+        """`git branch -D` must be flagged as dangerous.
+
+        Regression: the matcher lowercased the command before applying the
+        patterns, so the literal -D in the branch pattern could never match
+        and the short force-delete form passed through unchecked. The long
+        --delete --force form was caught, which hid the gap.
+        """
+        result = check_command_safety("git branch -D feature")
+
+        assert result.is_safe is False
+        assert len(result.dangerous_patterns) > 0
+        assert "delete" in result.warning_message.lower()
+
+    def test_branch_force_delete_short_flag_uppercase_command(self):
+        """The subcommand still folds case even though the flag does not."""
+        result = check_command_safety("GIT BRANCH -D feature")
+
+        assert result.is_safe is False
+
+    def test_branch_safe_delete_is_not_flagged(self):
+        """`git branch -d` only deletes merged branches, so it is not dangerous."""
+        result = check_command_safety("git branch -d merged-feature")
+
+        assert result.is_safe is True
+        assert result.dangerous_patterns == []
+
+    def test_branch_force_delete_long_flag_is_caught(self):
+        """The long form must keep working after the case-sensitivity fix."""
+        result = check_command_safety("git branch --delete --force feature")
+
+        assert result.is_safe is False
+        assert len(result.dangerous_patterns) > 0
+
     def test_check_command_with_git_prefix(self):
         """Test command safety with and without git prefix."""
         result_with_git = check_command_safety("git push --force")
